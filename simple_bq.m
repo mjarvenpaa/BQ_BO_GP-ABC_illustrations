@@ -10,7 +10,7 @@ function [] = simple_bq()
 %
 % In the second part, we consider the ratio of integrals i.e. the formula 
 %
-% I_2 = [int{xf(x)pi(x)}dx]/[int{f(x)pi(x)}dx].
+% I_2 = [int{xf(x)pi(x)}dx] / [int{f(x)pi(x)}dx].
 %
 
 close all;
@@ -26,9 +26,10 @@ x_bds = [x_grid(1); x_grid(end)];
 
 b = 5; % mean and variance for the gaussian density pi(x)
 B = 1^2;
+invB = 1/B;
 
 % select the locations and evaluate the (noisy and expensive) function f
-n_tr = 127;
+n_tr = 50;
 x_tr = x_bds(1)+(x_bds(2)-x_bds(1))*rand(n_tr,1);
 sigma_n_true = 0.01;
 y_tr = f_true(x_tr) + sigma_n_true*randn(size(x_tr));
@@ -47,9 +48,10 @@ id = 1;
 K = sqexp(x_tr,x_tr,invA,sigma_f) + (sigma_n^2 + 1e-9)*eye(n_tr);
 L = chol(K,'lower');
 z = sqexp(x_tr,b,inv(A+B),sigma_f)/sqrt(det(id+invA*B));
-a = L'\(L\y_tr(:));
+a = L'\(L\y_tr);
 m_intf = z'*a;
-v_intf = sigma_f^2/sqrt(det(id+2*invA*B)) - z'*(L'\(L\z));
+v_intf1 = sigma_f^2/sqrt(det(id+2*invA*B));
+v_intf = v_intf1 - z'*(L'\(L\z));
 
 % GP mean and variance for predicting at test points
 kx = sqexp(x_grid,x_tr,invA,sigma_f);
@@ -73,7 +75,7 @@ if 1
     plot(intf_true,0,'*r'); % true integral value
     plot(m_intf,0,'*k');
     intf_grid = linspace(0,max(f_true_grid),1000)';
-    plot(intf_grid,normpdf(intf_grid,m_intf,sqrt(v_intf)),'-k'); % density pi
+    plot(intf_grid,normpdf(intf_grid,m_intf,sqrt(v_intf)),'-k'); 
     hold off;
     xlabel('integral (evidence)');
     box on;
@@ -82,7 +84,7 @@ if 1
     hold on;
     plot(x_grid,f_true_grid,'-r');
     plot(x_tr,y_tr,'*k');
-    plot(x_grid,pi_grid,':r');
+    plot(x_grid,pi_grid,':r'); % density pi
     plot(x_grid,m_f_tr,'-k'); % gp mean
     plot(x_grid,m_f_tr + 1.96*s_f_tr,'--k'); % gp upper 95% CI
     plot(x_grid,m_f_tr - 1.96*s_f_tr,'--k'); % gp lower 95% CI
@@ -106,7 +108,22 @@ int2 = intf_true;
 intf_true = int1/int2;
 
 % expectation and variance of the expectation - analytical approx. formulas
-%...
+iaib = invA + invB;
+Gk1 = iaib\(invA*x_tr + invB*b);
+zr = z.*Gk1;
+m_intfr = zr'*a;
+edk1 = (iaib\invA)/(inv(A + B) + invB);
+v_ri1 = v_intf1*(edk1 + b^2);
+v_intfr = v_ri1 - zr'*(L'\(L\zr));
+s_intfr = sqrt(v_intfr);
+
+cov_ffr = 0; % TODO
+
+% Taylor approx.
+m_ri = m_intfr/m_intf - cov_ffr/m_intf^2 + m_intfr*v_intf/m_intf^3;
+v_ri = v_intfr/m_intf^2 - 2*m_intfr*cov_ffr/m_intf^3 + m_intfr^2*v_intf/m_intf^4;
+v_ri = max(0,v_ri);
+s_ri = sqrt(v_ri);
 
 % expectation and variance of the expectation - by simulation from GP
 nsimul = 500; % how many simuls from GP
@@ -114,14 +131,16 @@ jitter = 1e-9;
 L_grid = chol(c_f_tr + jitter*eye(size(c_f_tr)),'lower');
 rr = randn(n_grid,nsimul);
 sps = NaN(n_grid,nsimul);
+ui = NaN(1,nsimul);
+li = NaN(1,nsimul);
 ris = NaN(1,nsimul);
 % mtpps_j = bsxfun(@plus, mt, tauL*randn(n_is,N))';
 for i = 1:nsimul
     sps(:,i) = m_f_tr + L_grid*rr(:,i); % simulate sample path from GP
     pp_grid = sps(:,i).*pi_grid;
-    ui = trapz(x_grid,x_grid.*pp_grid);
-    li = trapz(x_grid,pp_grid);
-    ris(i) = ui/li;
+    ui(i) = trapz(x_grid, x_grid.*pp_grid);
+    li(i) = trapz(x_grid, pp_grid);
+    ris(i) = ui(i)/li(i);
 end
 
 % visualise integral I_2
@@ -133,24 +152,25 @@ if 1
     hold on;
     plot(intf_true,0,'*r'); % true integral value
     plot(ri_grid,ri_eval_grid,'-r'); % computed using simulation
-    hold off;
-    % computed using analytical approx. 
     
+    % computed using analytical approx. 
+    plot(m_ri,0,'*b'); 
+    plot(ri_grid,normpdf(ri_grid,m_ri,s_ri),'-k'); 
+    hold off;
     box on;
     
     % print results
     %ris
     %intf_true
+    m_ri,s_ri
     
     
     subplot(1,2,2); % plots posterior over [f]/[int f(x)pi(x)dx]
     hold on;
-    plot(x_grid,f_true_grid,'-r');
-    plot(x_tr,y_tr,'*k');
-    plot(x_grid,pi_grid,':r');
-    plot(x_grid,m_f_tr,'-k'); % gp mean
-    plot(x_grid,m_f_tr + 1.96*s_f_tr,'--k'); % gp upper 95% CI
-    plot(x_grid,m_f_tr - 1.96*s_f_tr,'--k'); % gp lower 95% CI
+    n_plot = 75;
+    for i = 1:min(n_plot,nsimul)
+        plot(x_grid,sps(:,i)/li(i),'-k');
+    end
     plot(x_bds,[0,0],'-b'); % zero line
     hold off;
     xlabel('x');
@@ -159,6 +179,17 @@ if 1
     set(gcf,'Position',[50 250 1200 600]);
 end
 
+
+% TEST: int r f pi dx
+figure(3);
+hold on;
+rf_grid = linspace(min(ui),max(ui),1000);
+plot(rf_grid,normpdf(rf_grid,m_intfr,s_intfr),'-k');
+rf_eval_grid = ksdensity(ui,rf_grid);
+plot(ri_grid,rf_eval_grid,'-r'); % computed using simulation
+plot(int1,0,'*r'); % true integral value
+int1
+hold off;
 end
 
 
@@ -178,5 +209,7 @@ fu = @(x,y) (x-y).^2*invS;
 dis = bsxfun(fu,x1(:),x2(:)');
 c = sigma_f^2*exp(-0.5*dis);
 end
+
+
 
 
