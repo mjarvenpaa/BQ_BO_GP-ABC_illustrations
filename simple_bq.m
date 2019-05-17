@@ -14,6 +14,7 @@ function [] = simple_bq()
 %
 
 close all;
+rng(12345);
 
 %% INTEGRAL I_1:
 %%%%%%%%%%%%%%%%
@@ -29,7 +30,7 @@ B = 1.5^2;
 invB = 1/B;
 
 % select the locations and evaluate the (noisy and expensive) function f
-n_tr = 120;
+n_tr = 20;
 x_tr = x_bds(1)+(x_bds(2)-x_bds(1))*rand(n_tr,1);
 sigma_n_true = 0.001;
 y_tr = f_true(x_tr) + sigma_n_true*randn(size(x_tr));
@@ -83,8 +84,8 @@ if 1
     subplot(1,2,2); % plots posterior over f
     hold on;
     plot(x_grid,f_true_grid,'-r');
-    plot(x_tr,y_tr,'*k');
-    plot(x_grid,pi_grid,'-g'); % density pi
+    plot(x_tr,y_tr,'*k'); % data points
+    plot(x_grid,pi_grid,'-m'); % density pi
     plot(x_grid,m_f_tr,'-k'); % gp mean
     plot(x_grid,m_f_tr + 1.96*s_f_tr,'--k'); % gp upper 95% CI
     plot(x_grid,m_f_tr - 1.96*s_f_tr,'--k'); % gp lower 95% CI
@@ -119,14 +120,14 @@ s_intfr = sqrt(v_intfr);
 % covariance between int{f(x)pi(x)}dx and int{xf(x)pi(x)}dx
 cov_ffr = v_intf1*b - z'*(L'\(L\zr));
 
-% Taylor approx. for the ratio integral
+% analytical Taylor approx. for the ratio integral
 m_ri = m_intfr/m_intf - cov_ffr/m_intf^2 + m_intfr*v_intf/m_intf^3;
 v_ri = v_intfr/m_intf^2 - 2*m_intfr*cov_ffr/m_intf^3 + m_intfr^2*v_intf/m_intf^4;
 v_ri = max(0,v_ri);
 s_ri = sqrt(v_ri);
 
 % expectation and variance of the expectation - by simulation from GP
-nsimul = 500; % how many simuls from GP
+nsimul = 1000; % how many simuls from GP
 jitter = 1e-9;
 L_grid = chol(c_f_tr + jitter*eye(size(c_f_tr)),'lower');
 rr = randn(n_grid,nsimul);
@@ -143,6 +144,8 @@ for i = 1:nsimul
     lis(i) = trapz(x_grid, fpi_draws(:,i));
     es(i) = uis(i)/lis(i);
 end
+fl_me = median(bsxfun(@rdivide,f_draws,lis),2); % median value
+fpil_me = median(bsxfun(@rdivide,fpi_draws,lis),2); % median value
 
 % visualise integral I_2
 if 1
@@ -154,7 +157,7 @@ if 1
     plot(intf_true,0,'xk'); % true integral value
     plot(ri_grid,ri_eval_grid,'-r'); % computed using simulation
     % computed using analytical approx.:
-    plot(m_ri,0,'*b'); 
+    plot(m_ri,0,'*k'); 
     plot(ri_grid,normpdf(ri_grid,m_ri,s_ri),'-k'); 
     hold off;
     xlabel('integral (expectation)');
@@ -166,6 +169,7 @@ if 1
     for i = 1:min(n_plot,nsimul)
         plot(x_grid,f_draws(:,i)/lis(i),'-k');
     end
+    plot(x_grid,fl_me,'-g'); % median
     plot(x_bds,[0,0],'-b'); % zero line
     hold off;
     xlabel('x');
@@ -178,6 +182,7 @@ if 1
     for i = 1:min(n_plot,nsimul)
         plot(x_grid,fpi_draws(:,i)/lis(i),'-k');
     end
+    plot(x_grid,fpil_me,'-g'); % median
     plot(x_bds,[0,0],'-b'); % zero line
     hold off;
     xlabel('x');
@@ -188,8 +193,8 @@ if 1
 end
 
 
-% test: compare int{xf(x)pi(x)}dx computed analytically v.s. by simulation 
-if 1
+% compare also int{xf(x)pi(x)}dx computed analytically v.s. by simulation 
+if 0
     figure(3);
     hold on;
     rf_grid = linspace(min(uis),max(uis),1000);
@@ -202,24 +207,6 @@ if 1
     box on;
     set(gcf,'Position',[1500 590 600 450]);
 end
-end
-
-
-function c = sqexp(x1,x2,invS,sigma_f)
-% computes the squared exp cov matrix between rows in x1 and x2
-
-% n1 = length(x1);
-% n2 = length(x2);
-% dis = NaN(n1,n2);
-% for i = 1:n1
-%     for j = 1:n2
-%         dis(i,j) = (x1(i)-x2(j))^2*invS;
-%     end
-% end
-
-fu = @(x,y) (x-y).^2*invS;
-dis = bsxfun(fu,x1(:),x2(:)');
-c = sigma_f^2*exp(-0.5*dis);
 end
 
 
