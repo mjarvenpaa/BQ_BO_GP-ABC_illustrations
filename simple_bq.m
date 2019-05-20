@@ -14,7 +14,7 @@ function [] = simple_bq()
 %
 
 close all;
-rng(12345);
+%rng(12345);
 
 %% INTEGRAL I_1:
 %%%%%%%%%%%%%%%%
@@ -22,7 +22,8 @@ rng(12345);
 % function f and density pi
 n_grid = 500;
 x_grid = linspace(0,10,n_grid)';
-f_true = @(x)exp(-0.5*(x-4).^2/0.5^2)/2; % true (likelihood) function f(x)
+mu = 4;
+f_true = @(x)exp(-0.5*(x-mu).^2/0.5^2)/2; % true (likelihood) function f(x)
 x_bds = [x_grid(1); x_grid(end)];
 
 b = 5; % mean and variance for the gaussian density pi(x)
@@ -38,7 +39,7 @@ y_tr = f_true(x_tr) + sigma_n_true*randn(size(x_tr));
 
 % set up and fit the GP (uses zero mean GP with squared-exp cov and fixed GP hypers)
 l = 1;
-sigma_f = 0.5;
+sigma_f = 0.25;
 sigma_n = sigma_n_true;
 A = l^2;
 invA = 1/A;
@@ -152,6 +153,7 @@ if 1
     figure(2);
     subplot(1,3,1); % 1/3: plots posterior over [int xf(x)pi(x)dx]/[int f(x)pi(x)dx]
     ri_grid = linspace(0.95*min(es),1.05*max(es),1000);
+    min(es), max(es)
     ri_eval_grid = ksdensity(es,ri_grid);
     hold on;
     plot(intf_true,0,'xk'); % true integral value
@@ -197,7 +199,7 @@ end
 if 0
     figure(3);
     hold on;
-    rf_grid = linspace(min(uis),max(uis),1000);
+    rf_grid = linspace(0.95*min(uis),1.05*max(uis),1000);
     plot(rf_grid,normpdf(rf_grid,m_intfr,s_intfr),'-k');
     rf_eval_grid = ksdensity(uis,rf_grid);
     plot(rf_grid,rf_eval_grid,'-r'); % computed using simulation
