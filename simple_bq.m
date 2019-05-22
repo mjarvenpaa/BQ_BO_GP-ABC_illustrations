@@ -19,21 +19,23 @@ close all;
 %% INTEGRAL I_1:
 %%%%%%%%%%%%%%%%
 
-% function f and density pi
+% function f
 n_grid = 500;
-x_grid = linspace(0,10,n_grid)';
+x_grid = linspace(-10,10,n_grid)';
 mu = 4;
-f_true = @(x)exp(-0.5*(x-mu).^2/0.5^2)/2; % true (likelihood) function f(x)
+v = 1.5^2;
+f_true = @(x)exp(-0.5*(x-mu).^2/v)/2; % true (likelihood) function f(x)
 x_bds = [x_grid(1); x_grid(end)];
 
-b = 5; % mean and variance for the gaussian density pi(x)
-B = 1.5^2;
+% density pi
+b = 2; % mean and variance for the gaussian density pi(x)
+B = 3^2;
 invB = 1/B;
 
 % select the locations and evaluate the (noisy and expensive) function f
-n_tr = 20;
+n_tr = 25;
 x_tr = x_bds(1)+(x_bds(2)-x_bds(1))*rand(n_tr,1);
-sigma_n_true = 0.001;
+sigma_n_true = 1*0.001;
 y_tr = f_true(x_tr) + sigma_n_true*randn(size(x_tr));
 
 
@@ -68,16 +70,20 @@ pi_grid = normpdf(x_grid,b,sqrt(B));
 f_pi_true_grid = f_true_grid.*pi_grid;
 intf_true = trapz(x_grid,f_pi_true_grid);
 
+% compute a simple Monte Carlo estimate
+%[ev,ex] = mean_mc_estim(y_tr.*normpdf(x_tr,b,sqrt(B)),x_tr);
 
 % visualise integral I_1
 if 1
     figure(1);
-    subplot(1,2,1); % plots posterior over the integral of f
+    set(gcf,'Position',[25 700 1200 450]);
+    subplot(1,2,1); % plots posterior over the integral of f i.e. evidence
     hold on;
     plot(intf_true,0,'xr'); % true integral value
     plot(m_intf,0,'*k');
     intf_grid = linspace(0,max(f_true_grid),1000)';
     plot(intf_grid,normpdf(intf_grid,m_intf,sqrt(v_intf)),'-k'); 
+    %plot(ev*[1,1],ylim(),'-y');
     hold off;
     xlabel('integral (evidence)');
     box on;
@@ -95,7 +101,6 @@ if 1
     xlabel('x');
     ylabel('likelihood');
     box on;
-    set(gcf,'Position',[25 590 1200 450]);
 end
 
 
@@ -151,6 +156,7 @@ fpil_me = median(bsxfun(@rdivide,fpi_draws,lis),2); % median value
 % visualise integral I_2
 if 1
     figure(2);
+    set(gcf,'Position',[25 25 1800 450]);
     subplot(1,3,1); % 1/3: plots posterior over [int xf(x)pi(x)dx]/[int f(x)pi(x)dx]
     ri_grid = linspace(0.95*min(es),1.05*max(es),1000);
     min(es), max(es)
@@ -190,8 +196,6 @@ if 1
     xlabel('x');
     ylabel('likelihood x prior/evidence');
     box on;
-    
-    set(gcf,'Position',[25 25 1800 450]);
 end
 
 
