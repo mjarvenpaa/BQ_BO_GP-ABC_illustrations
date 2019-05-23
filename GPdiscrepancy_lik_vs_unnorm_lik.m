@@ -106,7 +106,7 @@ if 1
     plot(x_grid,m_d_tr + 1.96*s_d_tr,['-',truecol],'LineWidth',lw); % gp upper 95% CI
     plot(x_grid,m_d_tr - 1.96*s_d_tr,['-',truecol],'LineWidth',lw); % gp lower 95% CI
     hold off;
-    title('log-likelihood');
+    title('discrepancy');
     xlabel('x');
     box on;
     

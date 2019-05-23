@@ -15,7 +15,7 @@ f_true = @(x)log(expf_true(x)); % true log-likelihood f(x)
 x_bds = [x_grid(1); x_grid(end)];
 
 % select the locations and evaluate the likelihood/log-likelihood
-n_tr = 25;
+n_tr = 15;
 x_tr = x_bds(1)+(x_bds(2)-x_bds(1))*rand(n_tr,1);
 sigma_n_true = 100*0.0005;
 y_tr = f_true(x_tr) + sigma_n_true*randn(size(x_tr));
