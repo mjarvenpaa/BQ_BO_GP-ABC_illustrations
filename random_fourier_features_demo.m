@@ -1,5 +1,5 @@
-function [] = random_fourier_features_test()
-% A simple 1d test case for random Fourier features v.s. standard GP
+function [] = random_fourier_features_demo()
+% A simple 1d test case for comparing a GP approx. using random Fourier features v.s. exact GP
 
 close all;
 %rng(12345);

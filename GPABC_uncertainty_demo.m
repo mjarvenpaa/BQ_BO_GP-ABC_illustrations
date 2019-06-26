@@ -1,6 +1,8 @@
-function [] = GPdiscrepancy_lik_vs_unnorm_lik()
-% Test using simulation in a simple 1d scenario how the uncertainties in the likelihood
-% compare to the normalised likelihood when the GP is placed on the discrepancy.
+function [] = GPABC_uncertainty_demo()
+% Demonstrates using simulation in a simple 1d scenario how the uncertainties in the likelihood compare to 
+% the normalised likelihood i.e. posterior when the discrepancy is modelled with GP as in the paper 
+% "Efficient acquisition rules for model-based approximate Bayesian computation", Bayesian Analysis, 
+% 14(2):595-622.
 
 close all; 
 %rng(12345);

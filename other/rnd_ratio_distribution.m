@@ -1,7 +1,6 @@
-function ratio_distribution_demo()
-% simulate points from the density of x/y where (x,y) have joint Gaussian distribution. 
-% (In some special cases, at least if both means=0, this is in fact a general Cauchy 
-% distribution.)
+function rnd_ratio_distribution()
+% Simulates points from the density of x/y where (x,y) have joint Gaussian distribution. 
+% (In some special cases, e.g. if both means=0, this is in fact a general Cauchy distribution.)
 
 close all;
 %rng(12345);

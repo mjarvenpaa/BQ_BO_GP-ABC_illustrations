@@ -1,5 +1,6 @@
 function c = sqexp(x1,x2,invS,sigma_f)
-% Computes the squared exp cov matrix between rows in x1 and x2
+% Computes the squared exp cov matrix between points in x1 and x2. Works only in 1d case i.e. invS 
+% must be scalar, x1 and x2 vectors.
 
 % n1 = length(x1);
 % n2 = length(x2);

@@ -1,17 +1,23 @@
-function [] = simple_bq()
-% A simple BQ-implementation and test case in 1d. 
+function [] = bq_demo()
+% A very simple Bayesian quadrature (BQ) implementation and test case in 1d. 
 %
-% We compute probabilistically the integral 
+% We first compute probabilistically the integral 
 %
 % I_1 = int{f(x)pi(x)}dx, 
 %
-% where pi(x) is a known Gaussian density, f is assumed costly to evaluate and where the 
-% integration is over the real numbers. 
+% where pi is a known Gaussian density, f is an expensive black-box function and where the 
+% integration is over the real numbers. GP prior is placed on f which induces a Gaussian
+% distribution for the integral I_1.
+%
 %
 % In the second part, we consider the ratio of integrals i.e. the formula 
 %
 % I_2 = [int{xf(x)pi(x)}dx] / [int{f(x)pi(x)}dx].
 %
+% Integrals such as I_2 are not studied in BQ literature and we do not seem to have closed-form
+% equations for I_2 when f ~ GP since both the nominator and denominator depend on f. We here
+% use Taylor series approximation to compute moments of I_2 (although this can be a flawed approach 
+% since the moments actually may not exist!).
 
 close all;
 %rng(12345);
@@ -69,9 +75,6 @@ f_true_grid = f_true(x_grid);
 pi_grid = normpdf(x_grid,b,sqrt(B));
 f_pi_true_grid = f_true_grid.*pi_grid;
 intf_true = trapz(x_grid,f_pi_true_grid);
-
-% compute a simple Monte Carlo estimate
-%[ev,ex] = mean_mc_estim(y_tr.*normpdf(x_tr,b,sqrt(B)),x_tr);
 
 % visualise integral I_1
 if 1
@@ -168,7 +171,7 @@ if 1
     plot(m_ri,0,'*k'); 
     plot(ri_grid,normpdf(ri_grid,m_ri,s_ri),'-k'); 
     hold off;
-    xlabel('integral (expectation)');
+    xlabel('ratio integral (expectation)');
     box on;
     
     subplot(1,3,2); % 2/3: plots posterior draws of [f]/[int f(x)pi(x)dx]

@@ -1,6 +1,8 @@
-function [] = GPloglik_lik_vs_unnorm_lik()
-% Test using simulation in a simple 1d scenario how the uncertainties in the likelihood
-% compare to the normalised likelihood when the GP is placed on the log-likelihood.
+function [] = GPLFI_uncertainty_demo()
+% demonstrtes using simulation in a simple 1d scenario how the uncertainties in the likelihood compare to 
+% the normalised likelihood i.e. posterior when the log-likelihood is modelled with GP as e.g.
+% in the paper "Parallel Gaussian process surrogate method to accelerate likelihood-free inference",
+% https://arxiv.org/abs/1905.01252
 
 close all; 
 %rng(12345);
