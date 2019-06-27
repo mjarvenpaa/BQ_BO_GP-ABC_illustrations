@@ -1,8 +1,8 @@
 function [] = GPLFI_uncertainty_demo()
-% demonstrtes using simulation in a simple 1d scenario how the uncertainties in the likelihood compare to 
-% the normalised likelihood i.e. posterior when the log-likelihood is modelled with GP as e.g.
-% in the paper "Parallel Gaussian process surrogate method to accelerate likelihood-free inference",
-% https://arxiv.org/abs/1905.01252
+% Demonstrates using simulation in a simple 1d scenario how the uncertainty in the 
+% likelihood compare to the normalised likelihood i.e. posterior when the log-likelihood 
+% is modelled with GP as e.g. in the paper "Parallel Gaussian process surrogate method to 
+% accelerate likelihood-free inference", https://arxiv.org/abs/1905.01252
 
 close all; 
 %rng(12345);
@@ -17,10 +17,10 @@ f_true = @(x)log(expf_true(x)); % true log-likelihood f(x)
 x_bds = [x_grid(1); x_grid(end)];
 
 % select the locations and evaluate the likelihood/log-likelihood
-n_tr = 15;
+n_tr = 20;
 x_tr = x_bds(1)+(x_bds(2)-x_bds(1))*rand(n_tr,1);
 sigma_n_true = 100*0.0005;
-y_tr = f_true(x_tr) + sigma_n_true*randn(size(x_tr));
+y_tr = f_true(x_tr) + sigma_n_true*randn(size(x_tr)); % noisy log-likelihood evaluation
 
 % set up and fit the GP (uses zero mean GP with squared-exp cov and fixed GP hypers)
 l = 3*0.5;
@@ -41,7 +41,7 @@ c_f_tr = sqexp(x_grid,x_grid,invA,sigma_f) - kx*(L'\(L\kx'));
 v_f_tr = diag(c_f_tr); % could be computed directly...
 s_f_tr = sqrt(v_f_tr);
 
-% mean and quantiles for likelihood from the log-GP 
+% median and quantiles for the likelihood from the log-GP 
 med_expf_tr = exp(m_f_tr);
 uc_expf_tr = exp(m_f_tr + norminv(0.975)*s_f_tr);
 lc_expf_tr = exp(m_f_tr + norminv(0.025)*s_f_tr);
@@ -60,7 +60,7 @@ Zs = NaN(1,nsimul);
 uis = NaN(1,nsimul);
 es = NaN(1,nsimul);
 for i = 1:nsimul
-    % note: numerical over/overflows not handled!
+    % note: numerical under/overflows not handled!
     f_draws(:,i) = m_f_tr + L_grid*rr(:,i); % simulate sample path from GP
     expf_draws(:,i) = exp(f_draws(:,i)); 
     Zs(i) = trapz(x_grid,expf_draws(:,i)); % sampled evidence
@@ -79,15 +79,15 @@ int_true = mu;
 
 % visualise
 if 1
-    PLOT_SPS = 1;
+    PLOT_SPS = 1; % whether to plot sample paths
     truecol = 'g';
-    lw = 1.3;
+    lw = 1.3; % linewidth
     aa = 0.99;
-    LOGP = 1;
+    LOGEV = 1; % whether compute and plot log evidence
     
     figure(1);
     set(gcf,'Position',[25 590 1800 1000]);
-    suptitle('GP prior on log-likelihood:');
+    suptitle('GP surrogate on log-likelihood:');
     
     %% log-likelihood (follows GP)
     subplot(4,2,1); 
@@ -105,30 +105,30 @@ if 1
     xlabel('x');
     box on;
     
-    %% posterior of the expectation ratio integral
+    %% posterior of the expectation (ratio integral)
     subplot(4,2,2); 
     ri_grid = linspace(x_bds(1),x_bds(2),1000);
     ri_eval_grid = ksdensity(es,ri_grid);
     hold on;
     plot(ri_grid,ri_eval_grid,'-r'); % computed using simulation
     esp = es(1:min(length(es),100));
-    plot(esp,zeros(size(esp)),'*k');
+    plot(esp,zeros(size(esp)),'*k'); % values computed from sample paths
     plot(int_true,0,'xr'); % true expectation
     hold off;
     xlim(x_bds);
-    title('expectation');
+    title('posterior expectation');
     xlabel('integral (expectation)');
     box on;
     %min(es),max(es)
     
     
-    %% unnormalised likelihood (follows log-GP)
+    %% unnormalised likelihood, computed analytically from log-GP
     subplot(4,2,3); 
     hold on;
     if PLOT_SPS
         n_plot = 75;
         for i = 1:min(n_plot,nsimul)
-            plot(x_grid,expf_draws(:,i),'-k');
+            plot(x_grid,expf_draws(:,i),'-k'); % exponentiated sample paths
         end
     end
     f_tr = exp(y_tr);
@@ -141,22 +141,23 @@ if 1
     xlabel('x');
     box on;
     
-    %% posterior of normalised likelihood by simulation
+    %% posterior of normalised likelihood, computed by simulation
     subplot(4,2,4); 
     hold on;
     if PLOT_SPS
         n_plot = 75;
         for i = 1:min(n_plot,nsimul)
-            plot(x_grid,norm_expf_draws(:,i),'-k');
+            plot(x_grid,norm_expf_draws(:,i),'-k'); % exponentiated & normalised sample paths
         end
     end
     plot(x_grid,med_norm_expf,['-',truecol],'LineWidth',lw); % normalised expf median
     plot(x_grid,uc_norm_expf,['--',truecol],'LineWidth',lw); % normalised expf upper 95% CI
     plot(x_grid,lc_norm_expf,['--',truecol],'LineWidth',lw); % normalised expf lower 95% CI
     hold off;
-    title('likelihood (normalised)');
+    title('likelihood (normalised) i.e. posterior');
     xlabel('x');
     box on;
+    
     
     %% posterior of x * normalised likelihood by simulation
     subplot(4,2,5); 
@@ -164,7 +165,7 @@ if 1
     if PLOT_SPS
         n_plot = 75;
         for i = 1:min(n_plot,nsimul)
-            plot(x_grid,xnorm_expf_draws(:,i),'-k');
+            plot(x_grid,xnorm_expf_draws(:,i),'-k'); % computed from simulated sample paths
         end
     end
     hold off;
@@ -174,7 +175,7 @@ if 1
     
     %% posterior of upper integral i.e. x * likelihood by simulation
     subplot(4,2,6);
-    if 0 && LOGP
+    if 0 
         uis = log(-min(uis)+uis+1);
     end
     ui_grid = linspace(min(uis),1.1*quantile(uis,aa),1000);
@@ -187,10 +188,11 @@ if 1
     xlabel('integral (unnormalised expectation)');
     box on;
     
+    
     %% posterior of evidence by simulation
     subplot(4,2,7);
-    if LOGP
-        Zs = log(Zs);
+    if LOGEV
+        Zs = log(Zs); % computes log of evidence
     end
     zs_grid = linspace(min(Zs),1.1*max(Zs),1000);
     z_eval_grid = ksdensity(Zs,zs_grid);
@@ -199,7 +201,11 @@ if 1
     Zsp = Zs(1:min(length(Zs),75));
     plot(Zsp,zeros(size(Zsp)),'*k');
     hold off;
-    xlabel('evidence');
+    if LOGEV
+        xlabel('log(evidence)');
+    else
+        xlabel('evidence');
+    end
     box on;
 end
 end

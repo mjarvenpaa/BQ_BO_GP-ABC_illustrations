@@ -35,7 +35,7 @@ v_f_tr = diag(c_f_tr); % could be computed directly...
 s_f_tr = sqrt(v_f_tr);
 
 % approximate GP mean and variance using random Fourier features
-m = 1000;
+m = 1000; % number of RFF basis functions
 W = 1/l^2*randn(m,1);
 b = 2*pi*rand(m,1);
 alpha = sigma_f^2;
@@ -46,9 +46,6 @@ m_rff = phi'*(A\(bf'*y_tr));
 c_rff = phi'*(A\phi)*sigma_n^2;
 v_rff = diag(c_rff);
 s_rff = sqrt(v_rff);
-
-% compute other things
-f_true_grid = f_true(x_grid);
 
 % compute some exact and approximate sample paths
 ns = 15;
@@ -63,12 +60,14 @@ for i = 1:ns
     sp_approx(i,:) = m_rff + La*rr(:,i);
 end
 
+% compute other things
+f_true_grid = f_true(x_grid);
 
 %% visualise GP fits
 figure(1);
 set(gcf,'Position',[25 700 1200 900]);
 subplot(2,2,1);
-title('exact');
+title('exact GP');
 hold on;
 plot(x_grid,f_true_grid,'-r'); % true function
 plot(x_tr,y_tr,'*k'); % data points
@@ -81,7 +80,7 @@ box on;
 yl = ylim();
 
 subplot(2,2,2);
-title('RFF approx.');
+title('RFF approx. GP');
 hold on;
 plot(x_grid,f_true_grid,'-r'); % true function
 plot(x_tr,y_tr,'*k'); % data points
@@ -114,14 +113,14 @@ plot(x_bds,[0,0],'-b'); % zero line
 hold off;
 box on;
 
-%% compare the true SE-kernel to the rff-kernel (inner product)
+%% compare the true SE-kernel to the approximate RFF-kernel
 if 1
     figure(2);
     set(gcf,'Position',[1300 700 550 400]);
     nxx = 1000;
     xx = linspace(0,5*l,nxx);
-    y_sek = sigma_f^2*exp(-0.5*xx.^2/l^2);
-    y_rff = 2*alpha/m*sum(cos(zeros(1,nxx) + b).*cos(W*xx(:)' + b),1);
+    y_sek = sigma_f^2*exp(-0.5*xx.^2/l^2); % exact kernel
+    y_rff = 2*alpha/m*sum(cos(zeros(1,nxx) + b).*cos(W*xx(:)' + b),1); % approx. kernel
     
     hold on;
     plot([xx(1),xx(end)],[0,0],'-k'); % zero line

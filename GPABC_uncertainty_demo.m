@@ -1,13 +1,14 @@
 function [] = GPABC_uncertainty_demo()
-% Demonstrates using simulation in a simple 1d scenario how the uncertainties in the likelihood compare to 
-% the normalised likelihood i.e. posterior when the discrepancy is modelled with GP as in the paper 
-% "Efficient acquisition rules for model-based approximate Bayesian computation", Bayesian Analysis, 
-% 14(2):595-622.
+% Demonstrates using simulation in a simple 1d scenario how the uncertainty in the 
+% likelihood compare to the normalised likelihood i.e. posterior when the discrepancy is 
+% modelled with GP as in the paper "Efficient acquisition rules for model-based 
+% approximate Bayesian computation", 2019, Bayesian Analysis, 14(2):595-622.
 
 close all; 
 %rng(12345);
 
-% true likelihood exp(f) and log-likelihood f, parameter x
+% true discrepancy mean d_true, ABC likelihood i.e. acceptance probability f_true, 
+% parameter x
 n_grid = 500;
 x_grid = linspace(-10,10,n_grid)';
 mu = 1;
@@ -20,12 +21,12 @@ x_bds = [x_grid(1); x_grid(end)];
 % select the locations and evaluate the discrepancy/likelihood
 n_tr = 50;
 if 1
-    x_tr = x_bds(1)+(x_bds(2)-x_bds(1))*rand(n_tr,1);
+    x_tr = x_bds(1)+(x_bds(2)-x_bds(1))*rand(n_tr,1); % uniform
 else
-    x_tr = min(x_bds(2),max(x_bds(1),mu + 2*randn(n_tr,1)));
+    x_tr = min(x_bds(2),max(x_bds(1),mu + 2*randn(n_tr,1))); % other choice...
 end
 sigma_n_true = sigma_n;
-y_tr = d_true(x_tr) + sigma_n_true*randn(size(x_tr));
+y_tr = d_true(x_tr) + sigma_n_true*randn(size(x_tr)); % evaluate discrepancies
 
 % set up and fit the GP (uses zero mean GP with squared-exp cov and fixed GP hypers)
 l = 1.5;
@@ -33,25 +34,23 @@ sigma_f = 10;
 A = l^2;
 invA = 1/A;
 
-% compute mean and variance of the integral over f
+% GP mean and variance for predicting discrepancy at test points x_grid
 K = sqexp(x_tr,x_tr,invA,sigma_f) + (sigma_n^2 + 1e-9)*eye(n_tr);
 L = chol(K,'lower');
 a = L'\(L\y_tr);
-
-% GP mean and variance for predicting log-likelihood f at test points x_grid
 kx = sqexp(x_grid,x_tr,invA,sigma_f);
 m_d_tr = kx*a;
 c_d_tr = sqexp(x_grid,x_grid,invA,sigma_f) - kx*(L'\(L\kx'));
 v_d_tr = diag(c_d_tr); % could be computed directly...
 s_d_tr = sqrt(v_d_tr);
 
-% mean and quantiles for likelihood from the discrepancy-GP 
+% mean and quantiles for the ABC likelihood from the discrepancy-GP 
 med_f_tr = normcdf_fast((epsilon-m_d_tr)/sigma_n);
 mean_f_tr = normcdf_fast((epsilon-m_d_tr)./sqrt(sigma_n^2 + v_d_tr));
 uc_f_tr = normcdf_fast((s_d_tr*norminv(0.975)-m_d_tr+epsilon)/sigma_n);
 lc_f_tr = normcdf_fast((s_d_tr*norminv(0.025)-m_d_tr+epsilon)/sigma_n);
 
-% sample from the GP, exponentiate and normalise
+% sample from the GP, compute ABC likelihood and normalise
 nsimul = 2000; % how many simuls from GP
 jitter = 1e-9;
 L_grid = chol(c_d_tr + jitter*eye(size(c_d_tr)),'lower');
@@ -65,7 +64,7 @@ Zs = NaN(1,nsimul);
 uis = NaN(1,nsimul);
 es = NaN(1,nsimul);
 for i = 1:nsimul
-    % note: numerical over/overflows not handled!
+    % note: numerical under/overflows not handled!
     d_draws(:,i) = m_d_tr + L_grid*rr(:,i); % simulate sample path from GP
     f_draws(:,i) = normcdf_fast((epsilon-d_draws(:,i))/sigma_n); 
     Zs(i) = trapz(x_grid,f_draws(:,i)); % sampled evidence
@@ -76,7 +75,7 @@ for i = 1:nsimul
     es(i) = uis(i)/Zs(i); % sampled expectation
 end
 med_norm_f = median(norm_f_draws,2); % median value
-mean_norm_f = mean(norm_f_draws,2); % median value
+mean_norm_f = mean(norm_f_draws,2); % mean value
 uc_norm_f = quantile(norm_f_draws,0.975,2); 
 lc_norm_f = quantile(norm_f_draws,0.025,2); 
 
@@ -85,15 +84,15 @@ int_true = mu;
 
 % visualise
 if 1
-    PLOT_SPS = 1;
+    PLOT_SPS = 1; % whether to plot sample paths
     truecol = 'g';
-    lw = 1.3;
+    lw = 1.3; % linewidth
     aa = 0.99;
-    LOGP = 0;
+    LOGEV = 0; % whether compute and plot log evidence
     
     figure(1);
     set(gcf,'Position',[25 590 1800 1000]);
-    suptitle('GP prior on discrepancy:');
+    suptitle('GP surrogate on discrepancy:');
     
     %% discrepancy (follows GP)
     subplot(4,2,1); 
@@ -103,14 +102,16 @@ if 1
         plot(x_grid,d_draws(:,i),'-k'); % draws
     end
     plot(x_tr,y_tr,'*k'); % discrepancy realisations
-    plot(x_bds,epsilon*[1,1],'--b'); % epsilon
-    plot(x_grid,m_d_tr,['-',truecol],'LineWidth',lw); % GP mean
-    plot(x_grid,m_d_tr + 1.96*s_d_tr,['-',truecol],'LineWidth',lw); % gp upper 95% CI
-    plot(x_grid,m_d_tr - 1.96*s_d_tr,['-',truecol],'LineWidth',lw); % gp lower 95% CI
+    h1(2) = plot(x_bds,epsilon*[1,1],'--b'); % epsilon
+    h1(1) = plot(x_grid,m_d_tr,['-',truecol],'LineWidth',lw); % GP mean
+    plot(x_grid,m_d_tr + 1.96*s_d_tr,['--',truecol],'LineWidth',lw); % gp upper 95% CI
+    plot(x_grid,m_d_tr - 1.96*s_d_tr,['--',truecol],'LineWidth',lw); % gp lower 95% CI
     hold off;
     title('discrepancy');
     xlabel('x');
+    ylabel('discrepancy');
     box on;
+    legend(h1,{'GP mean','threshold'});
     
     %% posterior of the expectation ratio integral
     subplot(4,2,2); 
@@ -123,10 +124,10 @@ if 1
     plot(int_true,0,'xr'); % true expectation
     hold off;
     xlim(x_bds);
-    title('expectation');
+    title('ABC posterior expectation');
     xlabel('integral (expectation)');
     box on;
-    min(es),max(es)
+    %min(es),max(es)
     
     
     %% unnormalised likelihood 
@@ -140,14 +141,15 @@ if 1
     end
     f_tr = normcdf_fast((epsilon-y_tr)/sigma_n);
     plot(x_tr,f_tr,'*k'); % data points (y exp-transformed)
-    plot(x_grid,med_f_tr,[':',truecol],'LineWidth',1.5); % f median
-    plot(x_grid,mean_f_tr,['-',truecol],'LineWidth',lw); % f mean 
+    h3(1) = plot(x_grid,med_f_tr,[':',truecol],'LineWidth',1.5); % f median
+    h3(2) = plot(x_grid,mean_f_tr,['-',truecol],'LineWidth',lw); % f mean 
     plot(x_grid,uc_f_tr,['--',truecol],'LineWidth',lw); % f upper 95% CI
     plot(x_grid,lc_f_tr,['--',truecol],'LineWidth',lw); % f lower 95% CI
     hold off;
-    title('likelihood (=acceptance probability)');
+    title('likelihood (=acceptance probability of ABC)');
     xlabel('x');
     box on;
+    legend(h3,{'median-based estimator','mean-based estimator'});
     
     %% posterior of normalised likelihood by simulation
     subplot(4,2,4); 
@@ -158,14 +160,15 @@ if 1
             plot(x_grid,norm_f_draws(:,i),'-k');
         end
     end
-    plot(x_grid,med_norm_f,[':',truecol],'LineWidth',1.5); % normalised f median
-    plot(x_grid,mean_norm_f,['-',truecol],'LineWidth',lw); % normalised f median
+    h4(1) = plot(x_grid,med_norm_f,[':',truecol],'LineWidth',1.5); % normalised f median
+    h4(2) = plot(x_grid,mean_norm_f,['-',truecol],'LineWidth',lw); % normalised f mean
     plot(x_grid,uc_norm_f,['--',truecol],'LineWidth',lw); % normalised f upper 95% CI
     plot(x_grid,lc_norm_f,['--',truecol],'LineWidth',lw); % normalised f lower 95% CI
     hold off;
-    title('likelihood (normalised)');
+    title('likelihood (normalised) i.e. ABC posterior');
     xlabel('x');
     box on;
+    legend(h4,{'median-based estimator','mean-based estimator'});
     
     %% posterior of x * normalised likelihood by simulation
     subplot(4,2,5); 
@@ -183,9 +186,6 @@ if 1
     
     %% posterior of upper integral i.e. x * likelihood by simulation
     subplot(4,2,6);
-    if LOGP
-        uis = log(-min(uis)+uis+1);
-    end
     ui_grid = linspace(min(uis),1.1*quantile(uis,aa),1000);
     ui_eval_grid = ksdensity(uis,ui_grid);
     hold on;
@@ -198,7 +198,7 @@ if 1
     
     %% posterior of evidence by simulation
     subplot(4,2,7);
-    if LOGP
+    if LOGEV
         Zs = log(Zs);
     end
     zs_grid = linspace(min(Zs),1.1*max(Zs),1000);
@@ -212,3 +212,5 @@ if 1
     box on;
 end
 end
+
+

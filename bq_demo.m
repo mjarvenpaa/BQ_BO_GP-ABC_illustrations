@@ -7,12 +7,13 @@ function [] = bq_demo()
 %
 % where pi is a known Gaussian density, f is an expensive black-box function and where the 
 % integration is over the real numbers. GP prior is placed on f which induces a Gaussian
-% distribution for the integral I_1.
+% distribution for the integral I_1. The mean and variance of it are computed analytically
+% as in equations 9 and 10 in "Bayesian Monte Carlo", Rasmussen anf Ghahramani 2003.
 %
 %
 % In the second part, we consider the ratio of integrals i.e. the formula 
 %
-% I_2 = [int{xf(x)pi(x)}dx] / [int{f(x)pi(x)}dx].
+% I_2 = [int{r(x)f(x)pi(x)}dx] / [int{f(x)pi(x)}dx], when r(x) = x.
 %
 % Integrals such as I_2 are not studied in BQ literature and we do not seem to have closed-form
 % equations for I_2 when f ~ GP since both the nominator and denominator depend on f. We here
@@ -93,16 +94,17 @@ if 1
     
     subplot(1,2,2); % plots posterior over f
     hold on;
-    plot(x_grid,f_true_grid,'-r');
+    h1(1) = plot(x_grid,f_true_grid,'-r'); % true function
     plot(x_tr,y_tr,'*k'); % data points
-    plot(x_grid,pi_grid,'-m'); % density pi
-    plot(x_grid,m_f_tr,'-k'); % gp mean
+    h1(2) = plot(x_grid,pi_grid,'-m'); % density pi
+    h1(3) = plot(x_grid,m_f_tr,'-k'); % gp mean
     plot(x_grid,m_f_tr + 1.96*s_f_tr,'--k'); % gp upper 95% CI
     plot(x_grid,m_f_tr - 1.96*s_f_tr,'--k'); % gp lower 95% CI
     plot(x_bds,[0,0],'-b'); % zero line
     hold off;
     xlabel('x');
     ylabel('likelihood');
+    legend(h1,{'true function','prior','GP mean'},'Location','northwest');
     box on;
 end
 
@@ -116,7 +118,7 @@ int1 = trapz(x_grid,xf_pi_true_grid);
 int2 = intf_true;
 intf_true = int1/int2;
 
-% expectation and variance of the integral int{r(x)f(x)pi(x)}dx in the nominator
+% expectation and variance of the integral int{xf(x)pi(x)}dx in the nominator
 iaib = invA + invB;
 Gk1 = iaib\(invA*x_tr + invB*b);
 zr = z.*Gk1;
@@ -162,17 +164,18 @@ if 1
     set(gcf,'Position',[25 25 1800 450]);
     subplot(1,3,1); % 1/3: plots posterior over [int xf(x)pi(x)dx]/[int f(x)pi(x)dx]
     ri_grid = linspace(0.95*min(es),1.05*max(es),1000);
-    min(es), max(es)
+    %min(es), max(es)
     ri_eval_grid = ksdensity(es,ri_grid);
     hold on;
     plot(intf_true,0,'xk'); % true integral value
-    plot(ri_grid,ri_eval_grid,'-r'); % computed using simulation
+    h2(1) = plot(ri_grid,ri_eval_grid,'-r'); % computed using simulation
     % computed using analytical approx.:
     plot(m_ri,0,'*k'); 
-    plot(ri_grid,normpdf(ri_grid,m_ri,s_ri),'-k'); 
+    h2(2) = plot(ri_grid,normpdf(ri_grid,m_ri,s_ri),'-k'); 
     hold off;
     xlabel('ratio integral (expectation)');
     box on;
+    legend(h2,{'simulation','Taylor approx.'},'Location','northwest');
     
     subplot(1,3,2); % 2/3: plots posterior draws of [f]/[int f(x)pi(x)dx]
     hold on;
@@ -203,15 +206,16 @@ end
 
 
 % compare also int{xf(x)pi(x)}dx computed analytically v.s. by simulation 
-if 0
+if 1
     figure(3);
     hold on;
     rf_grid = linspace(0.95*min(uis),1.05*max(uis),1000);
-    plot(rf_grid,normpdf(rf_grid,m_intfr,s_intfr),'-k');
+    h3(1) = plot(rf_grid,normpdf(rf_grid,m_intfr,s_intfr),'-k'); % exact computation
     rf_eval_grid = ksdensity(uis,rf_grid);
-    plot(rf_grid,rf_eval_grid,'-r'); % computed using simulation
+    h3(2) = plot(rf_grid,rf_eval_grid,'-r'); % computed using simulation
     plot(int1,0,'xk'); % true integral value
     xlabel('integral (nominator)');
+    legend(h3,{'exact','simulation'});
     hold off;
     box on;
     set(gcf,'Position',[1500 590 600 450]);
